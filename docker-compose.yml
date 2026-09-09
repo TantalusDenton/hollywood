@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./projects:/data/projects
+      - ./runtime:/app/runtime
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////app/runtime/hollywood.db
+      OUTPUT_ROOT: /data/projects
+      CHECKPOINT_DATABASE_PATH: /app/runtime/checkpoints.sqlite
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    depends_on:
+      - backend
