@@ -46,6 +46,10 @@ export default defineConfig(async () => {
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
+    // Dependency pre-bundling can stall indefinitely when this project is
+    // bind-mounted into a Windows Docker workspace. Modules are resolved by
+    // Vite on demand instead, so the development server can start promptly.
+    optimizeDeps: { noDiscovery: true, include: [] },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

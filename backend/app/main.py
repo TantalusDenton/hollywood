@@ -6,9 +6,10 @@ from uuid import UUID
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from .api import generations_router, projects_router, providers_router
+from .api import audio_router, generations_router, projects_router, providers_router
 from .config import Settings, get_settings
 from .db import Database, ProjectRepository
 from .graph import MovieWorkflow, WorkflowRuntime
@@ -98,8 +99,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Hollywood API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
     app.include_router(projects_router, prefix=settings.api_prefix)
+    app.include_router(audio_router, prefix=settings.api_prefix)
     app.include_router(generations_router, prefix=settings.api_prefix)
     app.include_router(providers_router, prefix=settings.api_prefix)
+    settings.output_root.mkdir(parents=True, exist_ok=True)
+    app.mount("/media", StaticFiles(directory=settings.output_root), name="media")
 
     @app.get("/health")
     async def health():

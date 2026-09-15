@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   MoreHorizontal,
+  Music2,
   PanelRight,
   Play,
   Plus,
@@ -125,9 +126,25 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState('Untitled film');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioSliceSeconds, setAudioSliceSeconds] = useState(4);
+  const [audioSliceCount, setAudioSliceCount] = useState<number | null>(null);
   const startProjectRef = useRef<(moviePrompt: string, useDirectorMode: boolean) => Promise<boolean>>(async () => false);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   const wordCount = useMemo(() => prompt.trim() ? prompt.trim().split(/\s+/).length : 0, [prompt]);
+
+  async function sliceUploadedAudio(file: File) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+    const body = new FormData();
+    body.append('file', file);
+    body.append('slice_seconds', String(audioSliceSeconds));
+    const response = await fetch(`${apiUrl}/audio/slice`, { method: 'POST', body });
+    if (!response.ok) throw new Error('Audio slicing failed');
+    const result = await response.json() as { fragments: unknown[] };
+    setAudioSliceCount(result.fragments.length);
+    return result.fragments.length;
+  }
 
   async function startProject(moviePrompt: string, useDirectorMode: boolean): Promise<boolean> {
     if (!moviePrompt.trim()) return false;
@@ -146,6 +163,15 @@ export default function Home() {
       setProjectTitle(project.title);
       setMode('working');
       setNotice('Project created — the story team is reading your brief.');
+      if (audioFile) {
+        setNotice(`Slicing ${audioFile.name} into ${audioSliceSeconds}-second cues…`);
+        try {
+          const cueCount = await sliceUploadedAudio(audioFile);
+          setNotice(`${cueCount} audio cues are ready for your timeline.`);
+        } catch {
+          setNotice('Project created, but the audio file could not be sliced.');
+        }
+      }
       return true;
     } catch {
       setNotice('Hollywood API is unavailable. Start the backend, then try again.');
@@ -236,7 +262,12 @@ export default function Home() {
               placeholder="Describe the story, the people in it, and the feeling you want on screen…"
               className="min-h-44 w-full resize-none bg-transparent p-6 text-lg leading-7 text-white placeholder:text-white/25 focus:outline-none sm:p-8"
             />
-            <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-white/60">
+                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" className="hidden" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} />
+                <button type="button" onClick={() => audioInputRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-white/12 bg-white/[.035] px-3 py-1.5 hover:bg-white/[.07]"><Music2 className="size-3.5 text-amber-100" />{audioFile ? audioFile.name : 'Add soundtrack (WAV or MP3)'}</button>
+                {audioFile && <label className="flex items-center gap-2 text-xs text-white/48">Slice every <input aria-label="Audio slice duration" type="number" min="1" max="60" value={audioSliceSeconds} onChange={(event) => setAudioSliceSeconds(Math.max(1, Number(event.target.value) || 1))} className="w-11 rounded border border-white/15 bg-black/20 px-1.5 py-1 text-center text-white focus:outline-none" /> sec</label>}
+              </div>
               <div className="flex items-center gap-4 text-xs text-white/45">
                 <span>{wordCount} words</span>
                 <span className="hidden h-3 w-px bg-white/15 sm:block" />
